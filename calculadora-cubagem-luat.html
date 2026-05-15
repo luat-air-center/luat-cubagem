@@ -1271,11 +1271,23 @@ function calcular() {
   const pesoCubadoPrincipal = volTotal * tcAtiva.fator;
   const pesofaturavel = Math.max(pesoReal, pesoCubadoPrincipal);
 
+  // --- Contagem de volumes: caixas regulares + fardos PPR ---
+  const totalFardosPPR = itensCalc.filter(i => i.isPPR).reduce((a, i) => a + i.nFardos, 0);
+  const totalCaixasRegulares = sugestao.totalCaixas || 0;
+  const totalVolumes = totalCaixasRegulares + totalFardosPPR;
+
+  // Detalhamento da composição de volumes
+  const partesVolume = [];
+  if (totalCaixasRegulares > 0) partesVolume.push(`${totalCaixasRegulares} caixa${totalCaixasRegulares > 1 ? 's' : ''}`);
+  if (totalFardosPPR > 0) partesVolume.push(`${totalFardosPPR} fardo${totalFardosPPR > 1 ? 's' : ''} PPR`);
+  const detalheVolumes = partesVolume.join(' + ');
+
   // --- Render stats ---
   document.getElementById('resumo-stats').innerHTML = `
     <div class="stat-card stat-azul">
-      <div class="sval">${sugestao.totalCaixas || itensCalc.reduce((a,i) => a + i.qtd, 0)}</div>
-      <div class="slabel">Total de caixas</div>
+      <div class="sval">${totalVolumes}</div>
+      <div class="slabel">Total de Volumes</div>
+      ${detalheVolumes ? `<div style="font-size:10px; margin-top:4px; opacity:0.75; font-weight:500">${detalheVolumes}</div>` : ''}
     </div>
     <div class="stat-card stat-cinza">
       <div class="sval">${volTotal.toFixed(4)}</div>
@@ -1341,7 +1353,7 @@ function calcular() {
       ${alertaSemDim}
       ${sugestaoCaixas.length > 0 ? `
       <div class="alerta" style="margin-bottom:10px">
-        💡 Bin-packing otimizado — todos os itens misturados, menor número de volumes (fator 70%). Caixa principal: <strong>Caixa ${caixaPrincipal}</strong> — Total: <strong>${sugestao.totalCaixas} volume(s)</strong>
+        💡 Bin-packing otimizado — todos os itens misturados, menor número de volumes (fator 70%). Caixa principal: <strong>Caixa ${caixaPrincipal}</strong> — Total caixas: <strong>${sugestao.totalCaixas}</strong>${totalFardosPPR > 0 ? ` + <strong>${totalFardosPPR} fardo(s) PPR</strong> = <strong>${totalVolumes} volumes</strong>` : ''}
       </div>
       <div class="sugestao-grid">
         ${sugestaoCaixas.map(s => `
@@ -1590,40 +1602,4 @@ function calcularSugestaoCaixas(itensCalc) {
   itensSemDim.forEach(item => {
     const cx = caixasOrdenadas.find(c => c.id === item.caixa) || caixasOrdenadas[0];
     const nome = cx ? cx.nome : 'PP';
-    if (!contagemTipo[nome]) contagemTipo[nome] = 0;
-    contagemTipo[nome] += item.qtd;
-  });
-
-  const totalCaixas = Object.values(contagemTipo).reduce((a,b) => a+b, 0);
-
-  const sugestao = caixasOrdenadas
-    .filter(cx => contagemTipo[cx.nome] > 0)
-    .map(cx => ({ cx, qtd: contagemTipo[cx.nome] }));
-
-  return {
-    sugestao,
-    detalhes,
-    totalCaixas,
-    temItensSemDim: itensSemDim.length > 0,
-    caixaPrincipal: melhorResultado ? melhorResultado.caixaAlvo.nome : '—',
-  };
-}
-
-// ============================
-// INIT
-// ============================
-function init() {
-  renderTransportadoras();
-  renderCaixas();
-  adicionarItem();
-  verificarConexaoTiny();
-}
-
-document.getElementById('modal-transportadora').addEventListener('click', function(e) {
-  if (e.target === this) fecharModal();
-});
-
-init();
-</script>
-</body>
-</html> 
+    if (!
