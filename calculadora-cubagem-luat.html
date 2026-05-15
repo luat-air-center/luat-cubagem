@@ -1541,8 +1541,7 @@ function copiarResumo() {
   linhas.push(`Transportadora: ${tcAtiva.nome} (fator ${tcAtiva.fator} kg/m³)`);
   linhas.push(`Data: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`);
 
-  const texto = linhas.join('
-');
+  const texto = linhas.join('\n');
   navigator.clipboard.writeText(texto).then(() => {
     const btn = document.getElementById('btn-copiar-resumo');
     btn.textContent = '✅ Copiado!';
