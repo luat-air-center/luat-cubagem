@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Cubagem — LUAT</title>
+<!-- Integração Tiny ERP v3 via backend local (porta 5050) -->
+<style>
+  :root {
+    --azul: #1a3a5c;
+    --azul-claro: #2563eb;
+    --azul-bg: #eff6ff;
+    --verde: #16a34a;
+    --verde-bg: #f0fdf4;
+    --laranja: #ea580c;
+    --laranja-bg: #fff7ed;
+    --cinza: #64748b;
+    --cinza-claro: #f1f5f9;
+    --borda: #e2e8f0;
+    --branco: #ffffff;
+    --texto: #1e293b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f0f4f8;
+    color: var(--texto);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--azul);
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  header .logo {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #60a5fa;
+  }
+  header .title {
+    font-size: 15px;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+  header .subtitle {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 1px;
+  }
+  header .badge {
+    margin-left: auto;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    opacity: 0.8;
+  }
+
+  /* LAYOUT */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .container { grid-template-columns: 1fr; }
+  }
+  .full-width { grid-column: 1 / -1; }
+
+  /* CARDS */
+  .card {
+    background: var(--branco);
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-header {
+    background: var(--azul-bg);
+    border-bottom: 1px solid var(--borda);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--azul);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .card-header .icon { font-size: 16px; }
+  .card-body { padding: 16px; }
+
+  /* TRANSPORTADORAS */
+  .transportadoras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .transportadora-card {
+    border: 2px solid var(--borda);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .transportadora-card.ativa {
+    border-color: var(--azul-claro);
+    background: var(--azul-bg);
+  }
+  .transportadora-card .tc-nome {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  .transportadora-card .tc-fator {
+    font-size: 11px;
+    color: var(--cinza);
+  }
+  .transportadora-card .tc-check {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--azul-claro);
+    color: white;
+    font-size: 10px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .transportadora-card.ativa .tc-check { display: flex; }
+  .btn-add-transportadora {
+    border: 2px dashed var(--borda);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    color: var(--cinza);
+    font-size: 12px;
+    background: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+  }
+  .btn-add-transportadora:hover { border-color: var(--azul-claro); color: var(--azul-claro); }
+
+  /* FORM NOVA TRANSPORTADORA */
+  .form-inline {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 120px;
+  }
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--cinza);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  input, select {
+    border: 1.5px solid var(--borda);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+    color: var(--texto);
+    outline: none;
+    transition: border 0.15s;
+    background: white;
+  }
+  input:focus, select:focus { border-color: var(--azul-claro); }
+  input[type=number] { -moz-appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* ITENS DO PEDIDO */
+  .item-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+    gap: 8px;
+    align-items: end;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--cinza-claro);
+  }
+  .item-row:last-child { border-bottom: none; }
+  @media (max-width: 700px) {
+    .item-row { grid-template-columns: 1fr 1fr; }
+  }
+  .btn {
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary { background: var(--azul-claro); color: white; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-success { background: var(--verde); color: white; }
+  .btn-success:hover { background: #15803d; }
+  .btn-danger { background: #ef4444; color: white; font-size: 12px; padding: 6px 10px; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-outline {
+    background: none;
+    border: 1.5px solid var(--borda);
+    color: var(--cinza);
+  }
+  .btn-outline:hover { border-color: var(--azul-claro); color: var(--azul-claro); }
+  .btn-calcular {
+    width: 100%;
+    background: var(--azul);
+    color: white;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-calcular:hover { background: #0f2744; }
+
+  /* CAIXAS DISPONÍVEIS */
+  .caixas-ref {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  @media (max-width: 700px) { .caixas-ref { grid-template-columns: repeat(3, 1fr); } }
+  .caixa-ref-card {
+    border: 1.5px solid var(--borda);
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+    font-size: 11px;
+    background: var(--cinza-claro);
+  }
+  .caixa-ref-card .cn { font-weight: 700; font-size: 12px; color: var(--azul); margin-bottom: 3px; }
+  .caixa-ref-card .cv { color: var(--cinza); line-height: 1.5; }
+
+  /* RESULTADOS */
+  .resultado-section { margin-top: 0; }
+
+  .resultado-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 700px) { .resultado-summary { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-card {
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-card .sval {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 2px;
+  }
+  .stat-card .slabel {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+  }
+  .stat-azul { background: var(--azul-bg); color: var(--azul); }
+  .stat-verde { background: var(--verde-bg); color: var(--verde); }
+  .stat-laranja { background: var(--laranja-bg); color: var(--laranja); }
+  .stat-cinza { background: var(--cinza-claro); color: var(--texto); }
+
+  /* TABELA DE CAIXAS SUGERIDAS */
+  .table-container { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    background: var(--azul);
+    color: white;
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  tbody tr:nth-child(even) { background: var(--cinza-claro); }
+  tbody tr:hover { background: var(--azul-bg); }
+  tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--borda);
+    vertical-align: middle;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .tag-cubado { background: #fef3c7; color: #92400e; }
+  .tag-real { background: #d1fae5; color: #065f46; }
+  .tag-alerta { background: #fee2e2; color: #991b1b; }
+
+  /* DETALHES POR TRANSPORTADORA */
+  .transp-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .transp-result-card {
+    border: 1.5px solid var(--borda);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .transp-result-card .tr-nome {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: var(--azul);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .transp-result-card .tr-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--cinza-claro);
+  }
+  .transp-result-card .tr-row:last-child { border-bottom: none; }
+  .transp-result-card .tr-row .label { color: var(--cinza); }
+  .transp-result-card .tr-row .val { font-weight: 600; }
+  .tr-cobravel { font-size: 13px; font-weight: 700; margin-top: 8px; padding-top: 8px; border-top: 2px solid var(--borda); display: flex; justify-content: space-between; }
+  .custo-estimado {
+    margin-top: 6px;
+    background: var(--azul-bg);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--azul);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* SUGESTÃO DE CAIXAS */
+  .sugestao-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .sug-card {
+    border: 2px solid var(--borda);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .sug-card.destaque {
+    border-color: var(--verde);
+    background: var(--verde-bg);
+  }
+  .sug-card .sug-nome { font-weight: 700; font-size: 13px; color: var(--azul); }
+  .sug-card .sug-qtd { font-size: 26px; font-weight: 800; color: var(--verde); margin: 4px 0; }
+  .sug-card .sug-sub { font-size: 10px; color: var(--cinza); }
+
+  /* ALERTA */
+  .alerta {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #856404;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .alerta-erro {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #991b1b;
+  }
+
+  /* BUSCA TINY */
+  .tiny-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+  }
+  .tiny-status.conectado { background: var(--verde-bg); color: var(--verde); border: 1px solid #bbf7d0; }
+  .tiny-status.desconectado { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .tiny-status.verificando { background: var(--azul-bg); color: var(--azul); border: 1px solid #bfdbfe; }
+
+  .busca-sku-wrapper {
+    position: relative;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .busca-sku-wrapper input { flex: 1; }
+  .busca-sku-wrapper .spinner {
+    position: absolute;
+    right: 80px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--borda);
+    border-top-color: var(--azul-claro);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .dropdown-resultados {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1.5px solid var(--azul-claro);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 200;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .dropdown-item {
+    padding: 9px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--cinza-claro);
+    font-size: 12px;
+    transition: background 0.1s;
+  }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: var(--azul-bg); }
+  .dropdown-item .di-nome { font-weight: 600; color: var(--texto); }
+  .dropdown-item .di-sub { color: var(--cinza); font-size: 11px; margin-top: 2px; }
+  .dropdown-item .di-aviso { color: var(--laranja); font-size: 10px; margin-top: 2px; }
+
+  .dim-auto-badge {
+    display: inline-block;
+    background: var(--verde-bg);
+    color: var(--verde);
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+
+  .pedido-loader {
+    background: var(--azul-bg);
+    border: 1.5px solid var(--azul-claro);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pedido-loader label { color: var(--azul); font-weight: 700; font-size: 12px; }
+
+  /* HIDDEN */
+  .hidden { display: none !important; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    width: 360px;
+    max-width: 95vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h3 { font-size: 15px; margin-bottom: 14px; color: var(--azul); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+
+  /* DIVISOR */
+  .divisor { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+  .divisor hr { flex: 1; border: none; border-top: 1px solid var(--borda); }
+  .divisor span { font-size: 11px; color: var(--cinza); font-weight: 600; text-transform: uppercase; }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 16px;
+    font-size: 11px;
+    color: var(--cinza);
+    border-top: 1px solid var(--borda);
+    background: white;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Aviso: arquivo aberto sem servidor -->
+<div id="aviso-sem-servidor" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:16px; padding:40px; max-width:480px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+    <div style="font-size:48px; margin-bottom:16px">⚠️</div>
+    <h2 style="color:#1a3a5c; margin-bottom:12px">Abrir pelo servidor</h2>
+    <p style="color:#64748b; line-height:1.6; margin-bottom:20px">
+      Esta calculadora precisa do servidor local para funcionar.<br>
+      <strong>Não abra o arquivo diretamente pelo Windows.</strong>
+    </p>
+    <div style="background:#f1f5f9; border-radius:8px; padding:14px; font-family:monospace; font-size:13px; color:#1e293b; margin-bottom:20px">
+      Clique duas vezes em:<br>
+      <strong>cubagem-backend\iniciar.bat</strong>
+    </div>
+    <p style="color:#64748b; font-size:12px">O servidor abrirá automaticamente em http://localhost:5050</p>
+  </div>
+</div>
+<script>
+  if (location.protocol === 'file:') {
+    document.getElementById('aviso-sem-servidor').style.display = 'flex';
+  }
+</script>
+
+<header>
+  <div>
+    <div class="logo">LUAT</div>
+  </div>
+  <div>
+    <div class="title">Calculadora de Cubagem & Frete</div>
+    <div class="subtitle">Cotação e Expedição · Peso Real vs Cubado</div>
+  </div>
+  <div class="badge">v1.0 · 2026</div>
+</header>
+
+<div class="container">
+
+  <!-- TRANSPORTADORAS -->
+  <div class="card full-width">
+    <div class="card-header"><span class="icon">🚚</span> Transportadoras Configuradas</div>
+    <div class="card-body">
+      <div class="transportadoras-grid" id="transportadoras-grid"></div>
+      <div style="margin-top:10px">
+        <button class="btn-add-transportadora" onclick="abrirModalTransportadora()">➕ Adicionar transportadora</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PEDIDO: ITENS -->
+  <div class="card">
+    <div class="card-header"><span class="icon">📦</span> Itens do Pedido</div>
+    <div class="card-body">
+
+      <!-- STATUS INTEGRAÇÃO TINY -->
+      <div id="tiny-status-bar" class="tiny-status verificando">
+        <span id="tiny-status-icon">⏳</span>
+        <span id="tiny-status-msg">Verificando conexão com Tiny ERP...</span>
+        <button onclick="verificarConexaoTiny()" style="margin-left:auto; background:none; border:none; cursor:pointer; font-size:11px; color:inherit; opacity:0.7">↻ Reconectar</button>
+      </div>
+
+      <!-- CARREGAR PEDIDO DO TINY -->
+      <div class="pedido-loader" id="pedido-loader-section">
+        <label>📋 Carregar pedido do Tiny:</label>
+        <div style="position:relative; flex:1; min-width:160px">
+          <input type="text" id="input-numero-pedido" placeholder="Nº do pedido (ex: 1234)" style="width:100%"
+            onkeydown="if(event.key==='Enter') carregarPedido()">
+        </div>
+        <button class="btn btn-primary" onclick="carregarPedido()" id="btn-carregar-pedido">Carregar</button>
+        <span id="pedido-loader-msg" style="font-size:11px; color:var(--cinza)"></span>
+      </div>
+
+      <div id="itens-container"></div>
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="adicionarItem()">➕ Adicionar item manual</button>
+        <button class="btn btn-outline" onclick="limparItens()">🗑 Limpar tudo</button>
+      </div>
+      <div style="margin-top:10px">
+        <label>Peso total real do pedido (kg) — opcional, para comparativo</label>
+        <input type="number" id="peso-real-total" placeholder="Ex: 15.5" step="0.1" style="margin-top:4px; width:100%">
+      </div>
+      <button class="btn-calcular" onclick="calcular()">⚡ Calcular Cubagem e Frete</button>
+    </div>
+  </div>
+
+  <!-- CAIXAS DISPONÍVEIS -->
+  <div class="card">
+    <div class="card-header"><span class="icon">📐</span> Caixas Disponíveis</div>
+    <div class="card-body">
+      <div class="caixas-ref" id="caixas-ref-grid"></div>
+      <div class="divisor"><hr><span>Adicionar caixa personalizada</span><hr></div>
+      <div class="form-inline">
+        <div class="form-group">
+          <label>Nome</label>
+          <input type="text" id="nova-caixa-nome" placeholder="Ex: Extra GG">
+        </div>
+        <div class="form-group" style="min-width:80px">
+          <label>Alt (cm)</label>
+          <input type="number" id="nova-caixa-alt" placeholder="60">
+        </div>
+        <div class="form-group" style="min-width:80px">
+          <label>Larg (cm)</label>
+          <input type="number" id="nova-caixa-larg" placeholder="50">
+        </div>
+        <div class="form-group" style="min-width:80px">
+          <label>Comp (cm)</label>
+          <input type="number" id="nova-caixa-comp" placeholder="50">
+        </div>
+        <button class="btn btn-outline" onclick="adicionarCaixa()" style="height:34px; align-self:flex-end">➕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTADOS -->
+  <div class="card full-width hidden" id="resultado-section">
+    <div class="card-header"><span class="icon">📊</span> Resultado da Cubagem</div>
+    <div class="card-body resultado-section">
+
+      <div class="resultado-summary" id="resumo-stats"></div>
+
+      <div class="divisor"><hr><span>Caixas sugeridas para este pedido</span><hr></div>
+      <div id="sugestao-caixas-container"></div>
+
+      <div class="divisor"><hr><span>Detalhamento por Transportadora</span><hr></div>
+      <div class="transp-results" id="transp-results-container"></div>
+
+      <div class="divisor"><hr><span>Detalhamento por item</span><hr></div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Caixa sugerida</th>
+              <th>A × L × C (cm)</th>
+              <th>Volume (m³)</th>
+              <th>Qtd</th>
+              <th>Vol. Total</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-itens-body"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL NOVA TRANSPORTADORA -->
+<div class="modal-overlay hidden" id="modal-transportadora">
+  <div class="modal">
+    <h3>➕ Nova Transportadora</h3>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Nome</label>
+      <input type="text" id="modal-tc-nome" placeholder="Ex: Braspress, Localfrio, TNT...">
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Fator de Cubagem (kg/m³)</label>
+      <input type="number" id="modal-tc-fator" placeholder="300" value="300">
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Valor por kg (R$) — opcional, para estimar custo</label>
+      <input type="number" id="modal-tc-valor" placeholder="0.00" step="0.01">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarTransportadora()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  LUAT Comércio de Compressores e Peças Ltda · Calculadora de Cubagem · Uso interno
+  <br><span style="opacity:0.6">Fórmula: Peso Cubado = (A × L × C em m) × Fator · Peso Faturável = max(Peso Real, Peso Cubado)</span>
+</footer>
+
+<script>
+// ============================
+// INTEGRAÇÃO TINY ERP
+// ============================
+// Se aberto via servidor local (http://localhost:5050), usa origem relativa.
+// Se aberto direto como arquivo (file://), tenta localhost:5050.
+const BACKEND_URL = location.protocol === "file:" ? "http://localhost:5050" : "";
+let tinyConectado = false;
+
+async function verificarConexaoTiny() {
+  const bar = document.getElementById('tiny-status-bar');
+  const icon = document.getElementById('tiny-status-icon');
+  const msg = document.getElementById('tiny-status-msg');
+  bar.className = 'tiny-status verificando';
+  icon.textContent = '⏳';
+  msg.textContent = 'Verificando conexão com Tiny ERP...';
+  try {
+    const resp = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    if (resp.ok) {
+      tinyConectado = true;
+      bar.className = 'tiny-status conectado';
+      icon.textContent = '✅';
+      msg.textContent = 'Tiny ERP conectado — busca automática de produtos ativa';
+    } else {
+      throw new Error('servidor offline');
+    }
+  } catch(e) {
+    tinyConectado = false;
+    bar.className = 'tiny-status desconectado';
+    icon.textContent = '⚠️';
+    msg.textContent = 'Servidor offline — inicie cubagem-backend/iniciar.bat para busca automática. Modo manual disponível.';
+  }
+}
+
+async function buscarProdutoTiny(sku) {
+  const resp = await fetch(`${BACKEND_URL}/produto?sku=${encodeURIComponent(sku)}`);
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(err.erro || 'Produto não encontrado');
+  }
+  return resp.json();
+}
+
+async function buscarProdutoNomeTiny(nome) {
+  const resp = await fetch(`${BACKEND_URL}/produto?nome=${encodeURIComponent(nome)}`);
+  if (!resp.ok) return null;
+  return resp.json();
+}
+
+async function carregarPedido() {
+  const numero = document.getElementById('input-numero-pedido').value.trim();
+  if (!numero) { alert('Informe o número do pedido.'); return; }
+  if (!tinyConectado) { alert('Servidor Tiny offline. Inicie o cubagem-backend/iniciar.bat primeiro.'); return; }
+
+  const msgEl = document.getElementById('pedido-loader-msg');
+  const btn   = document.getElementById('btn-carregar-pedido');
+  btn.disabled = true;
+  msgEl.textContent = '⏳ Buscando pedido...';
+
+  try {
+    const resp = await fetch(`${BACKEND_URL}/pedido?numero=${encodeURIComponent(numero)}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.erro || 'Pedido não encontrado');
+
+    // Limpar itens e preencher com os do pedido
+    state.itens = [];
+    state.nextItemId = 1;
+
+    data.itens.forEach(item => {
+      const nomeProd = item.nome || item.codigo || '';
+      // Frete especial: backend sinaliza quando produto não cabe na GG (aviso na caixa_sugerida)
+      // OU quando as dimensões do item ultrapassam a caixa GG
+      const maiorQueGG = (item.caixa_sugerida && item.caixa_sugerida.aviso)
+        || isFreteEspecial(item.alt_cm || 0, item.larg_cm || 0, item.comp_cm || 0);
+      const caixaId = maiorQueGG
+        ? (state.caixas[state.caixas.length - 1]?.id || 'gg')
+        : (item.caixa_sugerida ? item.caixa_sugerida.id : (state.caixas[0]?.id || 'pp'));
+
+      state.itens.push({
+        id:           state.nextItemId++,
+        desc:         nomeProd,
+        caixa:        caixaId,
+        qtd:          item.quantidade || 1,
+        peso:         item.peso_kg || 0,
+        alt_cm:       item.alt_cm || 0,
+        larg_cm:      item.larg_cm || 0,
+        comp_cm:      item.comp_cm || 0,
+        dimAutoTiny:  item.tem_dimensoes,
+        avisoTiny:    maiorQueGG ? 'Não cabe na caixa GG — frete especial (palete ou carga fracionada)' : (item.aviso || null),
+        freteEspecial: maiorQueGG,
+      });
+    });
+
+    renderItens();
+    msgEl.textContent = `✅ Pedido #${data.numero} carregado — ${data.total_itens} item(s) — ${data.cliente || ''}`;
+    document.getElementById('resultado-section').classList.add('hidden');
+
+  } catch(e) {
+    msgEl.textContent = `❌ ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Busca em tempo real por SKU no campo descrição (debounce)
+let _buscaTimer = null;
+let _dropdownAtivo = null;
+
+function buscarSkuDebounce(itemId, inputEl) {
+  clearTimeout(_buscaTimer);
+  fecharDropdown();
+  const val = inputEl.value.trim();
+  if (!tinyConectado || val.length < 3) return;
+
+  _buscaTimer = setTimeout(async () => {
+    const spinner = inputEl.parentElement?.querySelector('.spinner');
+    if (spinner) spinner.style.display = 'block';
+    try {
+      const data = await buscarProdutoNomeTiny(val);
+      if (spinner) spinner.style.display = 'none';
+      if (!data || !data.resultados || data.resultados.length === 0) return;
+      mostrarDropdown(itemId, inputEl, data.resultados);
+    } catch(e) {
+      if (spinner) spinner.style.display = 'none';
+    }
+  }, 500);
+}
+
+function mostrarDropdown(itemId, inputEl, resultados) {
+  fecharDropdown();
+  const wrap = inputEl.closest('.busca-sku-wrapper');
+  if (!wrap) return;
+  const dd = document.createElement('div');
+  dd.className = 'dropdown-resultados';
+  dd.id = 'dropdown-ativo';
+  resultados.slice(0, 8).forEach(prod => {
+    const div = document.createElement('div');
+    div.className = 'dropdown-item';
+    const volStr = prod.tem_dimensoes ? `${prod.alt_cm}×${prod.larg_cm}×${prod.comp_cm} cm · ${prod.peso_kg}kg` : '⚠ sem dimensões';
+    const cxStr  = prod.caixa_sugerida ? ` · Caixa ${prod.caixa_sugerida.nome}` : '';
+    div.innerHTML = `
+      <div class="di-nome">${prod.nome || prod.codigo} ${prod.tem_dimensoes ? '<span class="dim-auto-badge">AUTO</span>' : ''}</div>
+      <div class="di-sub">${prod.codigo || ''} · ${volStr}${cxStr}</div>
+      ${prod.aviso ? `<div class="di-aviso">⚠ ${prod.aviso}</div>` : ''}
+    `;
+    div.onclick = () => {
+      selecionarProdutoTiny(itemId, prod);
+      fecharDropdown();
+    };
+    dd.appendChild(div);
+  });
+  wrap.style.position = 'relative';
+  wrap.appendChild(dd);
+  _dropdownAtivo = dd;
+
+  // Fechar ao clicar fora
+  setTimeout(() => document.addEventListener('click', fecharDropdownOutside), 0);
+}
+
+function fecharDropdownOutside(e) {
+  if (_dropdownAtivo && !_dropdownAtivo.contains(e.target)) {
+    fecharDropdown();
+  }
+}
+function fecharDropdown() {
+  if (_dropdownAtivo) {
+    _dropdownAtivo.remove();
+    _dropdownAtivo = null;
+    document.removeEventListener('click', fecharDropdownOutside);
+  }
+}
+
+function selecionarProdutoTiny(itemId, prod) {
+  const item = state.itens.find(i => i.id === itemId);
+  if (!item) return;
+  const nomeProd = prod.nome || prod.codigo || item.desc;
+  // Frete especial: produto maior que GG (sinalizado pelo aviso do backend)
+  const maiorQueGG = (prod.caixa_sugerida && prod.caixa_sugerida.aviso)
+    || isFreteEspecial(prod.alt_cm || 0, prod.larg_cm || 0, prod.comp_cm || 0);
+
+  item.desc     = nomeProd;
+  item.peso     = prod.peso_kg || item.peso;
+  item.alt_cm   = prod.alt_cm || 0;
+  item.larg_cm  = prod.larg_cm || 0;
+  item.comp_cm  = prod.comp_cm || 0;
+  item.dimAutoTiny  = prod.tem_dimensoes;
+  item.freteEspecial = maiorQueGG;
+  item.avisoTiny = maiorQueGG
+    ? 'Não cabe na caixa GG — frete especial (palete ou carga fracionada)'
+    : (prod.aviso || null);
+
+  if (!maiorQueGG && prod.caixa_sugerida) {
+    const cxExiste = state.caixas.find(c => c.id === prod.caixa_sugerida.id);
+    item.caixa = cxExiste ? prod.caixa_sugerida.id : state.caixas[state.caixas.length - 1].id;
+  }
+  renderItens();
+}
+
+// ============================
+// ESTADO DA APLICAÇÃO
+// ============================
+let state = {
+  transportadoras: [
+    { id: 1, nome: 'Braspress', fator: 300, valorKg: null },
+    { id: 2, nome: 'Jadlog', fator: 167, valorKg: null },
+    { id: 3, nome: 'Loggi', fator: 167, valorKg: null },
+    { id: 4, nome: 'Correios (PAC/Sedex)', fator: 167, valorKg: null },
+  ],
+  transportadoraAtiva: 1,
+  caixas: [
+    { id: 'pp', nome: 'PP', alt: 8,  larg: 18, comp: 12 },
+    { id: 'p',  nome: 'P',  alt: 15, larg: 23, comp: 15 },
+    { id: 'm',  nome: 'M',  alt: 30, larg: 22, comp: 23 },
+    { id: 'g',  nome: 'G',  alt: 40, larg: 30, comp: 30 },
+    { id: 'gg', nome: 'GG', alt: 53, larg: 45, comp: 45 },
+  ],
+  itens: [],
+  nextItemId: 1,
+  nextCaixaId: 100,
+  nextTcId: 10,
+};
+
+// Carregar estado salvo
+try {
+  const saved = localStorage.getItem('luat_cubagem_state');
+  if (saved) {
+    const s = JSON.parse(saved);
+    // Mesclar apenas transportadoras e caixas personalizadas (não itens)
+    if (s.transportadoras) state.transportadoras = s.transportadoras;
+    if (s.caixas) state.caixas = s.caixas;
+    if (s.transportadoraAtiva) state.transportadoraAtiva = s.transportadoraAtiva;
+    if (s.nextTcId) state.nextTcId = s.nextTcId;
+    if (s.nextCaixaId) state.nextCaixaId = s.nextCaixaId;
+  }
+} catch(e) {}
+
+function salvarEstado() {
+  const toSave = {
+    transportadoras: state.transportadoras,
+    caixas: state.caixas,
+    transportadoraAtiva: state.transportadoraAtiva,
+    nextTcId: state.nextTcId,
+    nextCaixaId: state.nextCaixaId,
+  };
+  localStorage.setItem('luat_cubagem_state', JSON.stringify(toSave));
+}
+
+// ============================
+// RENDER TRANSPORTADORAS
+// ============================
+function renderTransportadoras() {
+  const grid = document.getElementById('transportadoras-grid');
+  grid.innerHTML = '';
+  state.transportadoras.forEach(tc => {
+    const div = document.createElement('div');
+    div.className = 'transportadora-card' + (tc.id === state.transportadoraAtiva ? ' ativa' : '');
+    div.innerHTML = `
+      <div class="tc-nome">${tc.nome}</div>
+      <div class="tc-fator">Fator: <strong>${tc.fator}</strong> kg/m³ ${tc.valorKg ? `· R$ ${tc.valorKg.toFixed(2)}/kg` : ''}</div>
+      <div class="tc-check">✓</div>
+    `;
+    div.onclick = () => { state.transportadoraAtiva = tc.id; renderTransportadoras(); };
+    grid.appendChild(div);
+  });
+}
+
+// ============================
+// RENDER CAIXAS
+// ============================
+function renderCaixas() {
+  const grid = document.getElementById('caixas-ref-grid');
+  grid.innerHTML = '';
+  state.caixas.forEach(cx => {
+    const vol = (cx.alt/100) * (cx.larg/100) * (cx.comp/100);
+    const div = document.createElement('div');
+    div.className = 'caixa-ref-card';
+    div.innerHTML = `
+      <div class="cn">${cx.nome}</div>
+      <div class="cv">${cx.alt}×${cx.larg}×${cx.comp} cm<br>${(vol*1000000).toFixed(0)} cm³<br>${vol.toFixed(4)} m³</div>
+      ${state.caixas.length > 1 ? `<button onclick="removerCaixa('${cx.id}')" style="margin-top:4px; background:none; border:none; color:#ef4444; cursor:pointer; font-size:10px;">✕ remover</button>` : ''}
+    `;
+    grid.appendChild(div);
+  });
+}
+
+// ============================
+// RENDER ITENS
+// ============================
+function renderItens() {
+  const container = document.getElementById('itens-container');
+  if (state.itens.length === 0) {
+    container.innerHTML = `<div style="color:var(--cinza); font-size:13px; padding:10px 0; text-align:center;">Nenhum item adicionado. Clique em "Adicionar item" abaixo.</div>`;
+    return;
+  }
+  const caixasOptions = state.caixas.map(cx => `<option value="${cx.id}">${cx.nome} (${cx.alt}×${cx.larg}×${cx.comp})</option>`).join('');
+  container.innerHTML = state.itens.map((item, idx) => `
+    <div class="item-row">
+      <div class="form-group">
+        ${idx === 0 ? `<label>Produto / SKU ${tinyConectado ? '<span class="dim-auto-badge" style="font-weight:400;opacity:0.8">Tiny ativo</span>' : ''}</label>` : ''}
+        <div class="busca-sku-wrapper">
+          <input type="text" value="${item.desc}"
+            oninput="updateItem(${item.id}, 'desc', this.value); buscarSkuDebounce(${item.id}, this)"
+            onchange="updateItem(${item.id}, 'desc', this.value)"
+            placeholder="${tinyConectado ? 'Digite SKU ou nome para buscar no Tiny...' : 'Ex: Secador Arion 30pés'}">
+          <div class="spinner"></div>
+        </div>
+        ${item.freteEspecial
+          ? '<div style="font-size:10px;color:#ea580c;margin-top:2px;font-weight:600">📦 FRETE ESPECIAL — excluído do cálculo de caixa e volume</div>'
+          : item.dimAutoTiny ? '<div style="font-size:10px;color:var(--verde);margin-top:2px">✅ Dimensões carregadas do Tiny</div>' : ''}
+        ${!item.freteEspecial && item.avisoTiny ? `<div style="font-size:10px;color:var(--laranja);margin-top:2px">⚠ ${item.avisoTiny}</div>` : ''}
+      </div>
+      <div class="form-group">
+        ${idx === 0 ? '<label>Caixa</label>' : ''}
+        <select onchange="updateItem(${item.id}, 'caixa', this.value)">
+          ${state.caixas.map(cx => `<option value="${cx.id}" ${item.caixa === cx.id ? 'selected' : ''}>${cx.nome}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        ${idx === 0 ? '<label>Qtd caixas</label>' : ''}
+        <input type="number" value="${item.qtd}" min="1" onchange="updateItem(${item.id}, 'qtd', parseInt(this.value)||1)" style="text-align:center">
+      </div>
+      <div class="form-group">
+        ${idx === 0 ? '<label>Peso unit (kg)</label>' : ''}
+        <input type="number" value="${item.peso}" step="0.1" min="0" placeholder="0.0" onchange="updateItem(${item.id}, 'peso', parseFloat(this.value)||0)">
+      </div>
+      <div class="form-group">
+        ${idx === 0 ? '<label>Vol m³ (auto)</label>' : ''}
+        <input type="text" readonly value="${getVolItemFormatado(item)}" style="background:var(--cinza-claro); color:var(--cinza)">
+      </div>
+      <div>
+        ${idx === 0 ? '<label>&nbsp;</label>' : ''}
+        <button class="btn btn-danger" onclick="removerItem(${item.id})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getVolItemFormatado(item) {
+  const cx = state.caixas.find(c => c.id === item.caixa);
+  if (!cx) return '—';
+  const vol = (cx.alt/100) * (cx.larg/100) * (cx.comp/100) * item.qtd;
+  return vol.toFixed(4) + ' m³';
+}
+
+function adicionarItem() {
+  const caixaPadrao = state.caixas.find(c => c.id === 'm') || state.caixas[2] || state.caixas[0];
+  state.itens.push({
+    id: state.nextItemId++,
+    desc: '',
+    caixa: caixaPadrao ? caixaPadrao.id : state.caixas[0].id,
+    qtd: 1,
+    peso: 0,
+  });
+  renderItens();
+}
+
+function updateItem(id, campo, valor) {
+  const item = state.itens.find(i => i.id === id);
+  if (item) {
+    item[campo] = valor;
+    if (campo === 'caixa') renderItens(); // atualiza vol auto
+  }
+}
+
+function removerItem(id) {
+  state.itens = state.itens.filter(i => i.id !== id);
+  renderItens();
+}
+
+function limparItens() {
+  if (confirm('Limpar todos os itens?')) {
+    state.itens = [];
+    renderItens();
+    document.getElementById('resultado-section').classList.add('hidden');
+  }
+}
+
+// ============================
+// CAIXAS PERSONALIZADAS
+// ============================
+function adicionarCaixa() {
+  const nome = document.getElementById('nova-caixa-nome').value.trim();
+  const alt = parseFloat(document.getElementById('nova-caixa-alt').value);
+  const larg = parseFloat(document.getElementById('nova-caixa-larg').value);
+  const comp = parseFloat(document.getElementById('nova-caixa-comp').value);
+  if (!nome || isNaN(alt) || isNaN(larg) || isNaN(comp)) {
+    alert('Preencha todos os campos da caixa.');
+    return;
+  }
+  state.caixas.push({ id: 'custom_' + (state.nextCaixaId++), nome, alt, larg, comp });
+  document.getElementById('nova-caixa-nome').value = '';
+  document.getElementById('nova-caixa-alt').value = '';
+  document.getElementById('nova-caixa-larg').value = '';
+  document.getElementById('nova-caixa-comp').value = '';
+  salvarEstado();
+  renderCaixas();
+}
+
+function removerCaixa(id) {
+  state.caixas = state.caixas.filter(c => c.id !== id);
+  salvarEstado();
+  renderCaixas();
+  renderItens();
+}
+
+// ============================
+// TRANSPORTADORAS MODAL
+// ============================
+function abrirModalTransportadora() {
+  document.getElementById('modal-transportadora').classList.remove('hidden');
+  document.getElementById('modal-tc-nome').focus();
+}
+function fecharModal() {
+  document.getElementById('modal-transportadora').classList.add('hidden');
+}
+function salvarTransportadora() {
+  const nome = document.getElementById('modal-tc-nome').value.trim();
+  const fator = parseFloat(document.getElementById('modal-tc-fator').value) || 300;
+  const valorKg = parseFloat(document.getElementById('modal-tc-valor').value) || null;
+  if (!nome) { alert('Informe o nome da transportadora.'); return; }
+  state.transportadoras.push({ id: state.nextTcId++, nome, fator, valorKg });
+  salvarEstado();
+  fecharModal();
+  renderTransportadoras();
+  document.getElementById('modal-tc-nome').value = '';
+  document.getElementById('modal-tc-fator').value = '300';
+  document.getElementById('modal-tc-valor').value = '';
+}
+
+// ============================
+// CÁLCULO PRINCIPAL
+// ============================
+function calcular() {
+  if (state.itens.length === 0) {
+    alert('Adicione pelo menos um item ao pedido.');
+    return;
+  }
+
+  // --- Volumes por item ---
+  let volTotal = 0;
+  let pesoRealTotal = 0;
+  const itensCalc = state.itens.map(item => {
+    const cx = state.caixas.find(c => c.id === item.caixa);
+    // Frete especial: flag salva no item OU dimensões ultrapassam GG
+    const especial = item.freteEspecial
+      || isFreteEspecial(item.alt_cm || 0, item.larg_cm || 0, item.comp_cm || 0);
+    // Frete especial: não entra no volume cubado (transporte como amarrado/palete)
+    const volUnit = (!especial && cx) ? (cx.alt/100) * (cx.larg/100) * (cx.comp/100) : 0;
+    const volItem = volUnit * item.qtd;
+    volTotal += volItem;
+    pesoRealTotal += item.peso * item.qtd;
+    return { ...item, cx, volUnit, volItem, freteEspecial: especial };
+  });
+
+  // Sobrescrever peso real se informado manualmente
+  const pesoRealManual = parseFloat(document.getElementById('peso-real-total').value);
+  const pesoReal = !isNaN(pesoRealManual) && pesoRealManual > 0 ? pesoRealManual : pesoRealTotal;
+
+  // --- Sugestão de caixas (soma de volumes → distribui nas menores caixas possíveis) ---
+  const sugestao = calcularSugestaoCaixas(itensCalc);
+
+  // --- Stats gerais ---
+  const tcAtiva = state.transportadoras.find(t => t.id === state.transportadoraAtiva) || state.transportadoras[0];
+  const pesoCubadoPrincipal = volTotal * tcAtiva.fator;
+  const pesofaturavel = Math.max(pesoReal, pesoCubadoPrincipal);
+
+  // --- Render stats ---
+  document.getElementById('resumo-stats').innerHTML = `
+    <div class="stat-card stat-azul">
+      <div class="sval">${sugestao.totalCaixas || itensCalc.reduce((a,i) => a + i.qtd, 0)}</div>
+      <div class="slabel">Total de caixas</div>
+    </div>
+    <div class="stat-card stat-cinza">
+      <div class="sval">${volTotal.toFixed(4)}</div>
+      <div class="slabel">Volume Total (m³)</div>
+    </div>
+    <div class="stat-card stat-verde">
+      <div class="sval">${pesoReal.toFixed(1)} kg</div>
+      <div class="slabel">Peso Real</div>
+    </div>
+    <div class="stat-card stat-laranja">
+      <div class="sval">${pesofaturavel.toFixed(1)} kg</div>
+      <div class="slabel">Peso Faturável (${tcAtiva.nome})</div>
+    </div>
+  `;
+
+  // --- Sugestão de caixas render ---
+  const sugestaoContainer = document.getElementById('sugestao-caixas-container');
+  const itensEspeciais = itensCalc.filter(i => i.freteEspecial);
+  const { sugestao: sugestaoCaixas, detalhes: detalhesCaixas, temItensSemDim, caixaPrincipal } = sugestao;
+
+  if (sugestaoCaixas.length > 0 || itensEspeciais.length > 0) {
+    const alertaEspecial = itensEspeciais.length > 0
+      ? `<div class="alerta" style="margin-bottom:10px; background:#fff7ed; border-color:#fed7aa; color:#92400e">
+           📦 <strong>${itensEspeciais.length} item(s) de frete especial</strong> excluído(s) do cálculo — dimensões maiores que caixa GG:
+           ${itensEspeciais.map(i => `<br>• ${i.desc} (qtd: ${i.qtd})`).join('')}
+         </div>`
+      : '';
+
+    const alertaSemDim = temItensSemDim
+      ? `<div class="alerta" style="margin-bottom:10px; background:#fefce8; border-color:#fde047; color:#854d0e">
+           ⚠ Alguns itens sem dimensões no Tiny foram contados como 1 item = 1 caixa (no tipo selecionado manualmente).
+         </div>`
+      : '';
+
+    // Tabela de detalhes de agrupamento
+    const tabelaDetalhes = detalhesCaixas.length > 0
+      ? `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:10px">
+           <thead>
+             <tr style="background:var(--cinza-claro); color:var(--cinza); text-align:left">
+               <th style="padding:6px 8px">Produto</th>
+               <th style="padding:6px 8px; text-align:center">Qtd itens</th>
+               <th style="padding:6px 8px; text-align:center">Itens/caixa</th>
+               <th style="padding:6px 8px; text-align:center">Caixas</th>
+               <th style="padding:6px 8px">Tipo caixa</th>
+             </tr>
+           </thead>
+           <tbody>
+             ${detalhesCaixas.map(d => `
+               <tr style="border-bottom:1px solid var(--borda)">
+                 <td style="padding:5px 8px">${d.desc}</td>
+                 <td style="padding:5px 8px; text-align:center">${d.qtdItens}</td>
+                 <td style="padding:5px 8px; text-align:center; color:var(--cinza)">${d.unidadesPorCaixa}</td>
+                 <td style="padding:5px 8px; text-align:center; font-weight:700">${d.qtdCaixas}</td>
+                 <td style="padding:5px 8px; color:var(--azul)">${d.caixa}</td>
+               </tr>
+             `).join('')}
+           </tbody>
+         </table>`
+      : '';
+
+    sugestaoContainer.innerHTML = `
+      ${alertaEspecial}
+      ${alertaSemDim}
+      ${sugestaoCaixas.length > 0 ? `
+      <div class="alerta" style="margin-bottom:10px">
+        💡 Bin-packing otimizado — todos os itens misturados, menor número de volumes (fator 70%). Caixa principal: <strong>Caixa ${caixaPrincipal}</strong> — Total: <strong>${sugestao.totalCaixas} volume(s)</strong>
+      </div>
+      <div class="sugestao-grid">
+        ${sugestaoCaixas.map(s => `
+          <div class="sug-card destaque">
+            <div class="sug-nome">Caixa ${s.cx.nome}</div>
+            <div class="sug-qtd">${s.qtd}</div>
+            <div class="sug-sub">${s.cx.alt}×${s.cx.larg}×${s.cx.comp} cm</div>
+          </div>
+        `).join('')}
+      </div>
+      ${tabelaDetalhes}` : ''}
+    `;
+  }
+
+  // --- Por transportadora ---
+  const transpContainer = document.getElementById('transp-results-container');
+  transpContainer.innerHTML = state.transportadoras.map(tc => {
+    const pesoCubado = volTotal * tc.fator;
+    const faturavel = Math.max(pesoReal, pesoCubado);
+    const cobravel = pesoCubado > pesoReal ? 'Cubado' : 'Real';
+    const estimativaCusto = tc.valorKg ? (faturavel * tc.valorKg) : null;
+    return `
+      <div class="transp-result-card" style="${tc.id === state.transportadoraAtiva ? 'border-color:var(--azul-claro); background:var(--azul-bg)' : ''}">
+        <div class="tr-nome">🚚 ${tc.nome} ${tc.id === state.transportadoraAtiva ? '<span style="font-size:10px; background:var(--azul-claro); color:white; padding:1px 6px; border-radius:10px; font-weight:700">PRINCIPAL</span>' : ''}</div>
+        <div class="tr-row"><span class="label">Fator</span><span class="val">${tc.fator} kg/m³</span></div>
+        <div class="tr-row"><span class="label">Peso Cubado</span><span class="val">${pesoCubado.toFixed(2)} kg</span></div>
+        <div class="tr-row"><span class="label">Peso Real</span><span class="val">${pesoReal.toFixed(2)} kg</span></div>
+        <div class="tr-cobravel">
+          <span>Peso Faturável</span>
+          <span style="color:${cobravel === 'Cubado' ? 'var(--laranja)' : 'var(--verde)'}">
+            ${faturavel.toFixed(2)} kg
+            <span class="tag ${cobravel === 'Cubado' ? 'tag-cubado' : 'tag-real'}">${cobravel}</span>
+          </span>
+        </div>
+        ${estimativaCusto ? `
+          <div class="custo-estimado">
+            💰 Estimativa: <strong>R$ ${estimativaCusto.toFixed(2)}</strong>
+            <span style="opacity:0.7; margin-left:4px">(${faturavel.toFixed(1)} kg × R$ ${tc.valorKg.toFixed(2)})</span>
+          </div>
+        ` : `<div class="custo-estimado" style="opacity:0.6">💡 Cadastre R$/kg para estimar custo</div>`}
+      </div>
+    `;
+  }).join('');
+
+  // --- Tabela de itens ---
+  document.getElementById('tabela-itens-body').innerHTML = itensCalc.map(item => {
+    if (item.freteEspecial) {
+      return `
+        <tr style="background:#fff7ed; color:#92400e">
+          <td>${item.desc || '<span style="color:var(--cinza)">—</span>'}</td>
+          <td colspan="3" style="font-size:11px; font-weight:600; color:#ea580c">
+            📦 FRETE ESPECIAL — não entra no cálculo de caixa
+            <span style="font-weight:400; opacity:0.8">(tubo/barra — transporte amarrado ou palete)</span>
+          </td>
+          <td style="text-align:center">${item.qtd}</td>
+          <td style="color:var(--cinza)">excluído</td>
+        </tr>`;
+    }
+    return `
+      <tr>
+        <td>${item.desc || '<span style="color:var(--cinza)">—</span>'}</td>
+        <td><strong>${item.cx ? item.cx.nome : '—'}</strong></td>
+        <td>${item.cx ? `${item.cx.alt}×${item.cx.larg}×${item.cx.comp}` : '—'}</td>
+        <td>${item.volUnit.toFixed(5)} m³</td>
+        <td style="text-align:center">${item.qtd}</td>
+        <td><strong>${item.volItem.toFixed(4)} m³</strong></td>
+      </tr>`;
+  }).join('');
+
+  // --- Alerta se cubado > real ---
+  const alertas = [];
+  if (pesoCubadoPrincipal > pesoReal) {
+    alertas.push(`⚠️ Na ${tcAtiva.nome}, o peso cubado (${pesoCubadoPrincipal.toFixed(1)} kg) é maior que o peso real (${pesoReal.toFixed(1)} kg). O frete será cobrado pelo peso cubado.`);
+  }
+  const alertaDiv = document.getElementById('resultado-section');
+  const alertasExistentes = alertaDiv.querySelectorAll('.alerta-frete');
+  alertasExistentes.forEach(a => a.remove());
+  if (alertas.length > 0) {
+    alertas.forEach(msg => {
+      const a = document.createElement('div');
+      a.className = 'alerta alerta-frete';
+      a.style.margin = '10px 16px';
+      a.textContent = msg;
+      alertaDiv.querySelector('.card-body').appendChild(a);
+    });
+  }
+
+  document.getElementById('resultado-section').classList.remove('hidden');
+  document.getElementById('resultado-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================
+// DETECÇÃO DE FRETE ESPECIAL
+// ============================
+// Regra: qualquer produto cujas dimensões não caibam na maior caixa (GG) é frete especial.
+// Quando o backend sinaliza aviso "Produto maior que GG", ou quando as dimensões ultrapassam a GG.
+
+function isFreteEspecial(alt_cm, larg_cm, comp_cm) {
+  if (!alt_cm && !larg_cm && !comp_cm) return false;
+  const gg = state.caixas[state.caixas.length - 1]; // maior caixa disponível
+  if (!gg) return false;
+  const dims = [Number(alt_cm), Number(larg_cm), Number(comp_cm)].sort((a,b) => a-b);
+  const caixaDims = [gg.alt, gg.larg, gg.comp].sort((a,b) => a-b);
+  return dims[0] > caixaDims[0] || dims[1] > caixaDims[1] || dims[2] > caixaDims[2];
+}
+
+// ============================
+// SUGESTÃO DE CAIXAS — BIN-PACKING GLOBAL (mistura todos os itens)
+// ============================
+// Estratégia: expande TODOS os itens em unidades individuais, mistura tudo,
+// e simula o empacotamento em caixas do tipo escolhido (first-fit decreasing).
+// Testa todos os tipos de caixa e escolhe o que gera MENOS volumes totais.
+//
+// Regra física: uma unidade só entra numa caixa se couber dimensionalmente.
+// Unidades que não cabem no tipo principal vão para a menor caixa que couber.
+// Fator de aproveitamento: 70% do volume interno.
+
+const FATOR_APROVEITAMENTO = 0.70;
+
+function cabeFisicamente(dimsItem, cx) {
+  const di = [...dimsItem].sort((a,b) => a-b);
+  const dc = [cx.alt, cx.larg, cx.comp].sort((a,b) => a-b);
+  return di[0] <= dc[0] && di[1] <= dc[1] && di[2] <= dc[2];
+}
+
+function menorCaixaQueCabe(dimsItem, caixasOrdenadas) {
+  return caixasOrdenadas.find(cx => cabeFisicamente(dimsItem, cx)) || null;
+}
+
+function simularEmpacotamento(itensComDim, caixaAlvo, caixasOrdenadas) {
+  // Expande todos os itens em unidades individuais
+  const todasUnidades = [];
+  itensComDim.forEach(item => {
+    const dims = [item.alt_cm, item.larg_cm, item.comp_cm].map(Number);
+    const volUnit = (dims[0]/100) * (dims[1]/100) * (dims[2]/100);
+    // Define a caixa efetiva para esta unidade
+    const caixaEfetiva = cabeFisicamente(dims, caixaAlvo)
+      ? caixaAlvo
+      : menorCaixaQueCabe(dims, caixasOrdenadas);
+    for (let i = 0; i < item.qtd; i++) {
+      todasUnidades.push({ volUnit, dims, caixaEfetiva, prodDesc: item.desc });
+    }
+  });
+
+  // Ordena do maior volume para o menor (first-fit decreasing)
+  todasUnidades.sort((a, b) => b.volUnit - a.volUnit);
+
+  // Simula as caixas abertas — cada caixa tem tipo e espaço restante
+  const caixasAbertas = []; // { cx, espacoRestante }
+
+  todasUnidades.forEach(u => {
+    if (!u.caixaEfetiva) return;
+    const volUtil = (u.caixaEfetiva.alt/100) * (u.caixaEfetiva.larg/100) * (u.caixaEfetiva.comp/100) * FATOR_APROVEITAMENTO;
+    const vol = u.volUnit > 0 ? u.volUnit : 0.000001;
+
+    // Tenta encaixar em caixa aberta do mesmo tipo com espaço
+    const abertas = caixasAbertas.filter(c => c.cx.id === u.caixaEfetiva.id && c.espacoRestante >= vol);
+    if (abertas.length > 0) {
+      abertas[0].espacoRestante -= vol;
+    } else {
+      // Abre nova caixa
+      caixasAbertas.push({ cx: u.caixaEfetiva, espacoRestante: volUtil - vol });
+    }
+  });
+
+  const totalCaixas = caixasAbertas.length;
+
+  // Conta caixas por tipo para o resumo
+  const contagemTipo = {};
+  caixasAbertas.forEach(c => {
+    if (!contagemTipo[c.cx.nome]) contagemTipo[c.cx.nome] = 0;
+    contagemTipo[c.cx.nome]++;
+  });
+
+  // Gera detalhes por produto (aproximação: mostra a caixa efetiva e qtd estimada de caixas)
+  // Para a tabela, recalcula por produto individualmente para ter linha clara
+  const detalhesPorProd = {};
+  itensComDim.forEach(item => {
+    const dims = [item.alt_cm, item.larg_cm, item.comp_cm].map(Number);
+    const volUnit = (dims[0]/100) * (dims[1]/100) * (dims[2]/100);
+    const caixaEfetiva = cabeFisicamente(dims, caixaAlvo)
+      ? caixaAlvo
+      : menorCaixaQueCabe(dims, caixasOrdenadas);
+    if (!caixaEfetiva) return;
+    const volUtil = (caixaEfetiva.alt/100) * (caixaEfetiva.larg/100) * (caixaEfetiva.comp/100) * FATOR_APROVEITAMENTO;
+    const unidadesPorCaixa = volUnit > 0 ? Math.max(1, Math.floor(volUtil / volUnit)) : item.qtd;
+    const qtdCaixas = Math.ceil(item.qtd / unidadesPorCaixa);
+    detalhesPorProd[item.desc] = {
+      desc: item.desc,
+      qtdItens: item.qtd,
+      unidadesPorCaixa,
+      qtdCaixas,
+      caixa: caixaEfetiva.nome,
+    };
+  });
+
+  return {
+    totalCaixas,
+    contagemTipo,
+    detalhes: Object.values(detalhesPorProd),
+  };
+}
+
+function calcularSugestaoCaixas(itensCalc) {
+  const itensSemDim = [];
+  const itensComDim = [];
+
+  itensCalc.forEach(item => {
+    if (item.freteEspecial) return;
+    if (!item.alt_cm && !item.larg_cm && !item.comp_cm) {
+      itensSemDim.push(item);
+    } else {
+      itensComDim.push(item);
+    }
+  });
+
+  const caixasOrdenadas = [...state.caixas].sort((a, b) =>
+    (a.alt * a.larg * a.comp) - (b.alt * b.larg * b.comp)
+  );
+
+  let melhorResultado = null;
+  let melhorTotal = Infinity;
+
+  // Testa cada tipo de caixa como "principal" e escolhe o que dá menos volumes
+  for (const caixaAlvo of caixasOrdenadas) {
+    const resultado = simularEmpacotamento(itensComDim, caixaAlvo, caixasOrdenadas);
+    if (resultado.totalCaixas < melhorTotal) {
+      melhorTotal = resultado.totalCaixas;
+      melhorResultado = { ...resultado, caixaAlvo };
+    }
+  }
+
+  const detalhes = melhorResultado ? melhorResultado.detalhes : [];
+  const contagemTipo = melhorResultado ? melhorResultado.contagemTipo : {};
+
+  // Adiciona itens sem dimensões (1 item = 1 caixa no tipo selecionado manualmente)
+  itensSemDim.forEach(item => {
+    const cx = caixasOrdenadas.find(c => c.id === item.caixa) || caixasOrdenadas[0];
+    const nome = cx ? cx.nome : 'PP';
+    if (!contagemTipo[nome]) contagemTipo[nome] = 0;
+    contagemTipo[nome] += item.qtd;
+  });
+
+  const totalCaixas = Object.values(contagemTipo).reduce((a,b) => a+b, 0);
+
+  // Grid de resultado (por tipo de caixa)
+  const sugestao = caixasOrdenadas
+    .filter(cx => contagemTipo[cx.nome] > 0)
+    .map(cx => ({ cx, qtd: contagemTipo[cx.nome] }));
+
+  return {
+    sugestao,
+    detalhes,
+    totalCaixas,
+    temItensSemDim: itensSemDim.length > 0,
+    caixaPrincipal: melhorResultado ? melhorResultado.caixaAlvo.nome : '—',
+  };
+}
+
+// ============================
+// INIT
+// ============================
+function init() {
+  renderTransportadoras();
+  renderCaixas();
+  adicionarItem(); // começa com 1 item em branco
+  verificarConexaoTiny(); // testa conexão com backend Tiny
+}
+
+// Fechar modal ao clicar fora
+document.getElementById('modal-transportadora').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+
+init();
+</script>
+</body>
+</html>

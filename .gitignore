@@ -1,0 +1,12 @@
+# Credenciais — NUNCA subir para o GitHub
+config.py
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: luat-cubagem
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn tiny_proxy:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: TINY_TOKEN
+        sync: false
