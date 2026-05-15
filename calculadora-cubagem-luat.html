@@ -514,6 +514,33 @@
   /* HIDDEN */
   .hidden { display: none !important; }
 
+  /* EXPORTAÇÃO */
+  .export-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--cinza-claro);
+    border-top: 1px solid var(--borda);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .btn-export {
+    background: white;
+    border: 1.5px solid var(--borda);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--cinza);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+  }
+  .btn-export:hover { border-color: var(--azul-claro); color: var(--azul-claro); }
+  .btn-export.copiado { border-color: var(--verde); color: var(--verde); }
+
   /* MODAL */
   .modal-overlay {
     position: fixed; inset: 0;
@@ -536,6 +563,14 @@
   .divisor { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
   .divisor hr { flex: 1; border: none; border-top: 1px solid var(--borda); }
   .divisor span { font-size: 11px; color: var(--cinza); font-weight: 600; text-transform: uppercase; }
+
+  /* IMPRESSÃO */
+  @media print {
+    header, .card:not(#resultado-section), footer, .export-bar { display: none !important; }
+    #resultado-section { display: block !important; box-shadow: none; border: none; }
+    body { background: white; }
+    .container { display: block; padding: 0; }
+  }
 
   /* FOOTER */
   footer {
@@ -684,6 +719,7 @@
               <th>A × L × C (cm)</th>
               <th>Volume (m³)</th>
               <th>Qtd</th>
+              <th>Peso Total</th>
               <th>Vol. Total</th>
             </tr>
           </thead>
@@ -691,6 +727,10 @@
         </table>
       </div>
 
+    </div>
+    <div class="export-bar">
+      <button class="btn-export" onclick="imprimirResultado()">🖨️ Imprimir</button>
+      <button class="btn-export" id="btn-copiar-resumo" onclick="copiarResumo()">📋 Copiar Resumo</button>
     </div>
   </div>
 
@@ -1409,6 +1449,7 @@ function calcular() {
             <span style="font-weight:400; opacity:0.8">(tubo/barra — transporte amarrado ou palete)</span>
           </td>
           <td style="text-align:center">${item.qtd}</td>
+          <td style="color:var(--cinza)">—</td>
           <td style="color:var(--cinza)">excluído</td>
         </tr>`;
     }
@@ -1416,6 +1457,8 @@ function calcular() {
       const p = item.pprInfo;
       const r = p.diam_cm / 2;
       const volTubo = (Math.PI * r * r * p.comp_cm / 1e6).toFixed(5);
+      const pesoPPR = item.peso * item.qtd;
+      const pesoPPRStr = pesoPPR > 0 ? pesoPPR.toFixed(2) + ' kg' : '<span style="color:var(--cinza);font-size:10px">—</span>';
       return `
         <tr style="background:#eff6ff;">
           <td>${item.desc || '<span style="color:var(--cinza)">—</span>'}
@@ -1425,9 +1468,12 @@ function calcular() {
           <td style="font-size:11px;color:var(--cinza)">ø${p.diam_cm} cm × ${p.comp_cm} cm</td>
           <td>${volTubo} m³/un</td>
           <td style="text-align:center">${item.qtd}</td>
+          <td>${pesoPPRStr}</td>
           <td><strong>${item.volItem.toFixed(4)} m³</strong></td>
         </tr>`;
     }
+    const pesoItem = item.peso * item.qtd;
+    const pesoItemStr = pesoItem > 0 ? pesoItem.toFixed(2) + ' kg' : '<span style="color:var(--cinza);font-size:10px">—</span>';
     return `
       <tr>
         <td>${item.desc || '<span style="color:var(--cinza)">—</span>'}</td>
@@ -1435,6 +1481,7 @@ function calcular() {
         <td>${item.cx ? `${item.cx.alt}×${item.cx.larg}×${item.cx.comp}` : '—'}</td>
         <td>${item.volUnit.toFixed(5)} m³</td>
         <td style="text-align:center">${item.qtd}</td>
+        <td>${pesoItemStr}</td>
         <td><strong>${item.volItem.toFixed(4)} m³</strong></td>
       </tr>`;
   }).join('');
@@ -1459,6 +1506,69 @@ function calcular() {
 
   document.getElementById('resultado-section').classList.remove('hidden');
   document.getElementById('resultado-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================
+// EXPORTAÇÃO DO RESULTADO
+// ============================
+function copiarResumo() {
+  const tcAtiva = state.transportadoras.find(t => t.id === state.transportadoraAtiva) || state.transportadoras[0];
+
+  // Coletar dados dos stat-cards
+  const stats = document.querySelectorAll('#resumo-stats .stat-card');
+  const linhas = ['📦 RESUMO DE CUBAGEM — LUAT', ''];
+
+  stats.forEach(card => {
+    const val   = card.querySelector('.sval')?.textContent?.trim() || '';
+    const label = card.querySelector('.slabel')?.textContent?.trim() || '';
+    const sub   = card.querySelector('[style*="font-size:10px"]')?.textContent?.trim() || '';
+    linhas.push(`${label}: ${val}${sub ? ' (' + sub + ')' : ''}`);
+  });
+
+  linhas.push('');
+  linhas.push('--- ITENS ---');
+
+  // Coletar itens da tabela
+  const rows = document.querySelectorAll('#tabela-itens-body tr');
+  rows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
+    if (cells.length > 0) {
+      linhas.push(cells.filter(Boolean).join(' | '));
+    }
+  });
+
+  linhas.push('');
+  linhas.push(`Transportadora: ${tcAtiva.nome} (fator ${tcAtiva.fator} kg/m³)`);
+  linhas.push(`Data: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`);
+
+  const texto = linhas.join('
+');
+  navigator.clipboard.writeText(texto).then(() => {
+    const btn = document.getElementById('btn-copiar-resumo');
+    btn.textContent = '✅ Copiado!';
+    btn.classList.add('copiado');
+    setTimeout(() => {
+      btn.textContent = '📋 Copiar Resumo';
+      btn.classList.remove('copiado');
+    }, 2000);
+  }).catch(() => {
+    // Fallback para browsers sem clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('btn-copiar-resumo');
+    btn.textContent = '✅ Copiado!';
+    setTimeout(() => { btn.textContent = '📋 Copiar Resumo'; }, 2000);
+  });
+}
+
+function imprimirResultado() {
+  window.print();
 }
 
 // ============================
@@ -1602,4 +1712,99 @@ function calcularSugestaoCaixas(itensCalc) {
   itensSemDim.forEach(item => {
     const cx = caixasOrdenadas.find(c => c.id === item.caixa) || caixasOrdenadas[0];
     const nome = cx ? cx.nome : 'PP';
-    if (!
+    if (!contagemTipo[nome]) contagemTipo[nome] = 0;
+    contagemTipo[nome] += item.qtd;
+  });
+
+  const totalCaixas = Object.values(contagemTipo).reduce((a,b) => a+b, 0);
+
+  const sugestao = caixasOrdenadas
+    .filter(cx => contagemTipo[cx.nome] > 0)
+    .map(cx => ({ cx, qtd: contagemTipo[cx.nome] }));
+
+  return {
+    sugestao,
+    detalhes,
+    totalCaixas,
+    temItensSemDim: itensSemDim.length > 0,
+    caixaPrincipal: melhorResultado ? melhorResultado.caixaAlvo.nome : '—',
+  };
+}
+
+// ============================
+// INIT
+// ============================
+function init() {
+  renderTransportadoras();
+  renderCaixas();
+  adicionarItem();
+  verificarConexaoTiny();
+}
+
+document.getElementById('modal-transportadora').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+
+// ============================
+// EXPORTAÇÃO DO RESULTADO
+// ============================
+function copiarResumo() {
+  const tcAtiva = state.transportadoras.find(t => t.id === state.transportadoraAtiva) || state.transportadoras[0];
+
+  const linhas = ['📦 RESUMO DE CUBAGEM — LUAT', ''];
+
+  // Stats
+  const stats = document.querySelectorAll('#resumo-stats .stat-card');
+  stats.forEach(card => {
+    const val   = card.querySelector('.sval')?.textContent?.trim() || '';
+    const label = card.querySelector('.slabel')?.textContent?.trim() || '';
+    const sub   = card.querySelector('[style*="font-size:10px"]')?.textContent?.trim() || '';
+    linhas.push(`${label}: ${val}${sub ? ' (' + sub + ')' : ''}`);
+  });
+
+  linhas.push('');
+  linhas.push('--- ITENS ---');
+
+  // Itens da tabela
+  const rows = document.querySelectorAll('#tabela-itens-body tr');
+  rows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td')).map(td => td.innerText.trim());
+    if (cells.length > 0) linhas.push(cells.filter(Boolean).join(' | '));
+  });
+
+  linhas.push('');
+  linhas.push(`Transportadora: ${tcAtiva.nome} (fator ${tcAtiva.fator} kg/m³)`);
+  linhas.push(`Data: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`);
+
+  const texto = linhas.join('\n');
+
+  navigator.clipboard.writeText(texto).then(() => {
+    const btn = document.getElementById('btn-copiar-resumo');
+    btn.textContent = '✅ Copiado!';
+    btn.classList.add('copiado');
+    setTimeout(() => {
+      btn.textContent = '📋 Copiar Resumo';
+      btn.classList.remove('copiado');
+    }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('btn-copiar-resumo');
+    btn.textContent = '✅ Copiado!';
+    setTimeout(() => { btn.textContent = '📋 Copiar Resumo'; }, 2000);
+  });
+}
+
+function imprimirResultado() {
+  window.print();
+}
+
+init();
+</script>
+</body>
+</html>
