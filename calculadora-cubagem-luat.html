@@ -1154,6 +1154,66 @@ function salvarTransportadora() {
 }
 
 // ============================
+// TUBOS PPR — CÁLCULO CILÍNDRICO POR FARDO
+// ============================
+// Tabela: chave = "bitola_comp" (mm_metros), valor = { qtdFardo, diam_cm, comp_cm }
+const PPR_FARDOS = {
+  '20_3':  { qtdFardo: 12, diam_cm:  2.0, comp_cm: 300 },
+  '25_3':  { qtdFardo: 12, diam_cm:  2.5, comp_cm: 300 },
+  '32_3':  { qtdFardo: 12, diam_cm:  3.2, comp_cm: 300 },
+  '40_3':  { qtdFardo:  4, diam_cm:  4.0, comp_cm: 300 },
+  '50_3':  { qtdFardo:  4, diam_cm:  5.0, comp_cm: 300 },
+  '63_3':  { qtdFardo:  2, diam_cm:  6.3, comp_cm: 300 },
+  '63_6':  { qtdFardo:  2, diam_cm:  6.3, comp_cm: 600 },
+  '75_3':  { qtdFardo:  2, diam_cm:  7.5, comp_cm: 300 },
+  '75_6':  { qtdFardo:  2, diam_cm:  7.5, comp_cm: 600 },
+  '90_3':  { qtdFardo:  1, diam_cm:  9.0, comp_cm: 300 },
+  '90_6':  { qtdFardo:  1, diam_cm:  9.0, comp_cm: 600 },
+  '110_3': { qtdFardo:  1, diam_cm: 11.0, comp_cm: 300 },
+  '110_6': { qtdFardo:  1, diam_cm: 11.0, comp_cm: 600 },
+  '160_3': { qtdFardo:  1, diam_cm: 16.0, comp_cm: 300 },
+  '160_6': { qtdFardo:  1, diam_cm: 16.0, comp_cm: 600 },
+};
+
+// SKUs Topfusion: TU{bitola}{pn}{comp}{sufixo}
+// Exemplos: TU201203, TU321203C, TU632006A, TU1601206V
+// Extrai bitola e comprimento direto do SKU quando começa com "TU"
+function detectarTuboPPR(sku, desc) {
+  const skuUpper = (sku || '').toUpperCase().trim();
+  // Padrão: TU + bitola (2-3 dígitos) + PN (2 dígitos) + comp em metros (2 dígitos) + sufixo opcional
+  // Ex: TU201203 → bitola=20, comp=3m | TU1601206V → bitola=160, comp=6m
+  const matchSku = skuUpper.match(/^TU(\d{2,3})\d{2}(\d{2})/);
+  if (matchSku) {
+    const bitola = parseInt(matchSku[1], 10);
+    const compM  = parseInt(matchSku[2], 10);
+    const chave  = `${bitola}_${compM}`;
+    if (PPR_FARDOS[chave]) return PPR_FARDOS[chave];
+  }
+  // Fallback: tenta extrair da descrição "XX Mm Barra Y Metros"
+  const descLower = (desc || '').toLowerCase();
+  if (descLower.includes('tubo ppr') || descLower.includes('tubo ppe')) {
+    const mBitola = descLower.match(/(\d+)\s*mm/);
+    const mComp   = descLower.match(/barra\s+(\d+)\s*metro/);
+    if (mBitola && mComp) {
+      const chave = `${parseInt(mBitola[1])}_${parseInt(mComp[1])}`;
+      if (PPR_FARDOS[chave]) return PPR_FARDOS[chave];
+    }
+  }
+  return null;
+}
+
+// Calcula volume cilíndrico total de um lote de tubos PPR (em m³)
+// Volume = π × (diam/2)² × comp × qtd  (tudo em cm → divide por 1.000.000 para m³)
+function calcVolumePPR(fardoInfo, qtd) {
+  const r = fardoInfo.diam_cm / 2;
+  const volTubo_cm3 = Math.PI * r * r * fardoInfo.comp_cm;          // volume de 1 tubo em cm³
+  const nFardos     = Math.ceil(qtd / fardoInfo.qtdFardo);           // nº de fardos inteiros
+  const volFardo_m3 = (volTubo_cm3 * fardoInfo.qtdFardo) / 1e6;     // volume do fardo cheio em m³
+  const volTotal_m3 = volFardo_m3 * nFardos;                         // volume total em m³
+  return { volTotal_m3, nFardos, volFardo_m3, volTubo_cm3 };
+}
+
+// ============================
 // CÁLCULO PRINCIPAL
 // ============================
 function calcular() {
@@ -1166,6 +1226,24 @@ function calcular() {
   let volTotal = 0;
   let pesoRealTotal = 0;
   const itensCalc = state.itens.map(item => {
+    // --- Detecção de tubo PPR ---
+    const pprInfo = detectarTuboPPR(item.sku || item.desc, item.desc);
+    if (pprInfo) {
+      const { volTotal_m3, nFardos, volFardo_m3 } = calcVolumePPR(pprInfo, item.qtd);
+      pesoRealTotal += item.peso * item.qtd;
+      return {
+        ...item,
+        cx: null,
+        volUnit: volFardo_m3,
+        volItem: volTotal_m3,
+        freteEspecial: false,
+        isPPR: true,
+        pprInfo,
+        nFardos,
+        avisoTiny: item.avisoTiny || `🔵 Tubo PPR ${pprInfo.diam_cm*10}mm × ${pprInfo.comp_cm/100}m — ${nFardos} fardo(s) · vol. cilíndrico`,
+      };
+    }
+
     const cx = state.caixas.find(c => c.id === item.caixa);
     // Frete especial: flag salva no item OU dimensões ultrapassam GG
     const especial = item.freteEspecial
@@ -1177,6 +1255,9 @@ function calcular() {
     pesoRealTotal += item.peso * item.qtd;
     return { ...item, cx, volUnit, volItem, freteEspecial: especial };
   });
+
+  // Somar volumes PPR separadamente (já calculados acima)
+  itensCalc.forEach(i => { if (i.isPPR) volTotal += i.volItem; });
 
   // Sobrescrever peso real se informado manualmente
   const pesoRealManual = parseFloat(document.getElementById('peso-real-total').value);
@@ -1319,6 +1400,22 @@ function calcular() {
           <td style="color:var(--cinza)">excluído</td>
         </tr>`;
     }
+    if (item.isPPR) {
+      const p = item.pprInfo;
+      const r = p.diam_cm / 2;
+      const volTubo = (Math.PI * r * r * p.comp_cm / 1e6).toFixed(5);
+      return `
+        <tr style="background:#eff6ff;">
+          <td>${item.desc || '<span style="color:var(--cinza)">—</span>'}
+            <div style="font-size:10px;color:#2563eb;margin-top:2px">🔵 PPR ø${p.diam_cm*10}mm × ${p.comp_cm/100}m — ${item.nFardos} fardo(s) de ${p.qtdFardo} un</div>
+          </td>
+          <td><strong style="color:#2563eb">Fardo PPR</strong></td>
+          <td style="font-size:11px;color:var(--cinza)">ø${p.diam_cm} cm × ${p.comp_cm} cm</td>
+          <td>${volTubo} m³/un</td>
+          <td style="text-align:center">${item.qtd}</td>
+          <td><strong>${item.volItem.toFixed(4)} m³</strong></td>
+        </tr>`;
+    }
     return `
       <tr>
         <td>${item.desc || '<span style="color:var(--cinza)">—</span>'}</td>
@@ -1408,35 +1505,29 @@ function simularEmpacotamento(itensComDim, caixaAlvo, caixasOrdenadas) {
   // Ordena do maior volume para o menor (first-fit decreasing)
   todasUnidades.sort((a, b) => b.volUnit - a.volUnit);
 
-  // Simula as caixas abertas — cada caixa tem tipo e espaço restante
-  const caixasAbertas = []; // { cx, espacoRestante }
+  // Simula as caixas abertas
+  const caixasAbertas = [];
 
   todasUnidades.forEach(u => {
     if (!u.caixaEfetiva) return;
     const volUtil = (u.caixaEfetiva.alt/100) * (u.caixaEfetiva.larg/100) * (u.caixaEfetiva.comp/100) * FATOR_APROVEITAMENTO;
     const vol = u.volUnit > 0 ? u.volUnit : 0.000001;
-
-    // Tenta encaixar em caixa aberta do mesmo tipo com espaço
     const abertas = caixasAbertas.filter(c => c.cx.id === u.caixaEfetiva.id && c.espacoRestante >= vol);
     if (abertas.length > 0) {
       abertas[0].espacoRestante -= vol;
     } else {
-      // Abre nova caixa
       caixasAbertas.push({ cx: u.caixaEfetiva, espacoRestante: volUtil - vol });
     }
   });
 
   const totalCaixas = caixasAbertas.length;
 
-  // Conta caixas por tipo para o resumo
   const contagemTipo = {};
   caixasAbertas.forEach(c => {
     if (!contagemTipo[c.cx.nome]) contagemTipo[c.cx.nome] = 0;
     contagemTipo[c.cx.nome]++;
   });
 
-  // Gera detalhes por produto (aproximação: mostra a caixa efetiva e qtd estimada de caixas)
-  // Para a tabela, recalcula por produto individualmente para ter linha clara
   const detalhesPorProd = {};
   itensComDim.forEach(item => {
     const dims = [item.alt_cm, item.larg_cm, item.comp_cm].map(Number);
@@ -1470,6 +1561,7 @@ function calcularSugestaoCaixas(itensCalc) {
 
   itensCalc.forEach(item => {
     if (item.freteEspecial) return;
+    if (item.isPPR) return; // Tubos PPR — excluir do bin-packing de caixas
     if (!item.alt_cm && !item.larg_cm && !item.comp_cm) {
       itensSemDim.push(item);
     } else {
@@ -1484,7 +1576,6 @@ function calcularSugestaoCaixas(itensCalc) {
   let melhorResultado = null;
   let melhorTotal = Infinity;
 
-  // Testa cada tipo de caixa como "principal" e escolhe o que dá menos volumes
   for (const caixaAlvo of caixasOrdenadas) {
     const resultado = simularEmpacotamento(itensComDim, caixaAlvo, caixasOrdenadas);
     if (resultado.totalCaixas < melhorTotal) {
@@ -1496,7 +1587,6 @@ function calcularSugestaoCaixas(itensCalc) {
   const detalhes = melhorResultado ? melhorResultado.detalhes : [];
   const contagemTipo = melhorResultado ? melhorResultado.contagemTipo : {};
 
-  // Adiciona itens sem dimensões (1 item = 1 caixa no tipo selecionado manualmente)
   itensSemDim.forEach(item => {
     const cx = caixasOrdenadas.find(c => c.id === item.caixa) || caixasOrdenadas[0];
     const nome = cx ? cx.nome : 'PP';
@@ -1506,7 +1596,6 @@ function calcularSugestaoCaixas(itensCalc) {
 
   const totalCaixas = Object.values(contagemTipo).reduce((a,b) => a+b, 0);
 
-  // Grid de resultado (por tipo de caixa)
   const sugestao = caixasOrdenadas
     .filter(cx => contagemTipo[cx.nome] > 0)
     .map(cx => ({ cx, qtd: contagemTipo[cx.nome] }));
@@ -1526,11 +1615,10 @@ function calcularSugestaoCaixas(itensCalc) {
 function init() {
   renderTransportadoras();
   renderCaixas();
-  adicionarItem(); // começa com 1 item em branco
-  verificarConexaoTiny(); // testa conexão com backend Tiny
+  adicionarItem();
+  verificarConexaoTiny();
 }
 
-// Fechar modal ao clicar fora
 document.getElementById('modal-transportadora').addEventListener('click', function(e) {
   if (e.target === this) fecharModal();
 });
@@ -1538,5 +1626,4 @@ document.getElementById('modal-transportadora').addEventListener('click', functi
 init();
 </script>
 </body>
-</html>
-              
+</html> 
