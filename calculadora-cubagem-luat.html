@@ -1358,7 +1358,7 @@ function calcular() {
 
     const alertaSemDim = temItensSemDim
       ? `<div class="alerta" style="margin-bottom:10px; background:#fefce8; border-color:#fde047; color:#854d0e">
-           ⚠ Alguns itens sem dimensões no Tiny foram contados como 1 item = 1 caixa (no tipo selecionado manualmente).
+           ⚠ Itens sem dimensões no Tiny foram agrupados estimativamente na caixa principal (20 unid/caixa). Cadastre as dimensões no Tiny para resultado preciso.
          </div>`
       : '';
 
@@ -1708,12 +1708,27 @@ function calcularSugestaoCaixas(itensCalc) {
   const detalhes = melhorResultado ? melhorResultado.detalhes : [];
   const contagemTipo = melhorResultado ? melhorResultado.contagemTipo : {};
 
-  itensSemDim.forEach(item => {
-    const cx = caixasOrdenadas.find(c => c.id === item.caixa) || caixasOrdenadas[0];
-    const nome = cx ? cx.nome : 'PP';
-    if (!contagemTipo[nome]) contagemTipo[nome] = 0;
-    contagemTipo[nome] += item.qtd;
-  });
+  // Itens sem dimensão: agrupar na caixa principal do bin-packing
+  // (não contar 1 caixa por unidade — são acessórios pequenos que cabem muitos por caixa)
+  if (itensSemDim.length > 0) {
+    const cxPrincipal = melhorResultado ? melhorResultado.caixaAlvo : caixasOrdenadas[caixasOrdenadas.length - 1];
+    const nomePrincipal = cxPrincipal ? cxPrincipal.nome : (caixasOrdenadas[0]?.nome || 'PP');
+    // Estimar quantas caixas: assume 20 unidades por caixa (conservador para acessórios PPR)
+    const totalUnidadesSemDim = itensSemDim.reduce((acc, i) => acc + i.qtd, 0);
+    const caixasSemDim = Math.max(1, Math.ceil(totalUnidadesSemDim / 20));
+    if (!contagemTipo[nomePrincipal]) contagemTipo[nomePrincipal] = 0;
+    contagemTipo[nomePrincipal] += caixasSemDim;
+    // Adicionar linha de detalhe agrupada para itens sem dimensão
+    if (caixasSemDim > 0) {
+      detalhes.push({
+        desc: `⚠ ${itensSemDim.length} produto(s) sem dimensão no Tiny (${totalUnidadesSemDim} unid.)`,
+        qtdItens: totalUnidadesSemDim,
+        unidadesPorCaixa: Math.floor(totalUnidadesSemDim / caixasSemDim),
+        qtdCaixas: caixasSemDim,
+        caixa: nomePrincipal + ' (estimado)',
+      });
+    }
+  }
 
   const totalCaixas = Object.values(contagemTipo).reduce((a,b) => a+b, 0);
 
