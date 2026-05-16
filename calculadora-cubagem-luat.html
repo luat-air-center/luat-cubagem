@@ -1393,7 +1393,7 @@ function calcular() {
       ${alertaSemDim}
       ${sugestaoCaixas.length > 0 ? `
       <div class="alerta" style="margin-bottom:10px">
-        💡 Bin-packing otimizado — todos os itens misturados, menor número de volumes (fator 70%). Caixa principal: <strong>Caixa ${caixaPrincipal}</strong> — Total caixas: <strong>${sugestao.totalCaixas}</strong>${totalFardosPPR > 0 ? ` + <strong>${totalFardosPPR} fardo(s) PPR</strong> = <strong>${totalVolumes} volumes</strong>` : ''}
+        💡 Bin-packing otimizado — todos os itens misturados, menor número de volumes (fator 80%). Caixa principal: <strong>Caixa ${caixaPrincipal}</strong> — Total caixas: <strong>${sugestao.totalCaixas}</strong>${totalFardosPPR > 0 ? ` + <strong>${totalFardosPPR} fardo(s) PPR</strong> = <strong>${totalVolumes} volumes</strong>` : ''}
       </div>
       <div class="sugestao-grid">
         ${sugestaoCaixas.map(s => `
@@ -1594,9 +1594,9 @@ function isFreteEspecial(alt_cm, larg_cm, comp_cm) {
 //
 // Regra física: uma unidade só entra numa caixa se couber dimensionalmente.
 // Unidades que não cabem no tipo principal vão para a menor caixa que couber.
-// Fator de aproveitamento: 70% do volume interno.
+// Fator de aproveitamento: 80% do volume interno.
 
-const FATOR_APROVEITAMENTO = 0.70;
+const FATOR_APROVEITAMENTO = 0.80;
 
 function cabeFisicamente(dimsItem, cx) {
   const di = [...dimsItem].sort((a,b) => a-b);
